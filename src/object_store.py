@@ -1,11 +1,14 @@
 import os
-
+from src.meta_data_manager import MetaDataManager
+from src.chunk_manager import ChunkManager
 class ObjectStore:
     def __init__(self, base_path = "object-store", chunk_size = 1024):
         self.base_path = base_path
         self.chunk_size = chunk_size
         
         os.makedirs(self.base_path, exist_ok=True)
+        self.metadata_manager=MetaDataManager()
+        self.chunk_manager=ChunkManager(chunk_size)
 
     def createBucket(self, bucket_name):
         bucket_path = os.path.join(self.base_path, bucket_name)
@@ -15,6 +18,8 @@ class ObjectStore:
             return False
 
         os.makedirs(bucket_path)
+        self.metadata_manager.save_store_metadata(bucket_name)
+        self.metadata_manager.save_bucket_metadata(bucket_name)
         print(f"Bucket {bucket_name} created successfully.")
         return True
 
@@ -33,9 +38,24 @@ class ObjectStore:
         version_path = os.path.join(object_path, version)
         os.makedirs(version_path, exist_ok=True)
 
-        for i, chunk in enumerate(chunks):
-            with open(os.path.join(version_path, f"chunk{i+1}"), "wb") as f:
-                f.write(chunk)
+        self.chunk_manager.write_chunks(version_path,chunks)
+        obj_meta = self.metadata_manager.load_object_metadata(bucket_name, key)
+        file_hash = self.chunk_manager.compute_hash(b''.join(chunks))
+
+        obj_meta["versions"][version] = {
+            "chunkCount": len(chunks),
+            "hash": file_hash
+        }
+
+        self.metadata_manager.save_object_metadata(bucket_name, key, obj_meta)
+
+        bucket_meta = self.metadata_manager.load_bucket_metadata(bucket_name)
+        bucket_meta["objects"][key] = version
+        self.metadata_manager.save_bucket_metadata(bucket_name, bucket_meta)
+
+        # for i, chunk in enumerate(chunks):
+        #     with open(os.path.join(version_path, f"chunk{i+1}"), "wb") as f:
+        #         f.write(chunk)
 
         print(f"Stored in {bucket_name}/{version}")
 
@@ -55,25 +75,42 @@ class ObjectStore:
 
         object_path = os.path.join(self.base_path, bucket_name, key)
 
+        # Load metadata
+        obj_meta = self.metadata_manager.load_object_metadata(bucket_name, key)
+
+        if not obj_meta["versions"]:
+            print("No versions found.")
+            return
+
+        # Get latest version if not provided
         if version is None:
-            version = self.getLatestVersion(object_path)
+            version = max(obj_meta["versions"].keys(), key=lambda v: int(v[1:]))
+
+        # Validate version
+        if version not in obj_meta["versions"]:
+            print(f"Version {version} not found.")
+            return
+
+        version_info = obj_meta["versions"][version]
+        chunk_count = version_info["chunkCount"]
+        expected_hash = version_info["hash"]
 
         version_path = os.path.join(object_path, version)
 
+        reconstructed_data = self.chunk_manager.read_chunks(version_path, chunk_count)
+
+        # Verify integrity
+        actual_hash = self.chunk_manager.compute_hash(bytes(reconstructed_data))
+
+        if actual_hash != expected_hash:
+            print("WARNING: Data corruption detected!")
+            return
+
+        # Save output
         with open("output.jpg", "wb") as out:
-            i = 1
-            while True:
-                chunk_path = os.path.join(version_path, f"chunk{i}")
+            out.write(reconstructed_data)
 
-                if not os.path.exists(chunk_path):
-                    break
-
-                with open(chunk_path, "rb") as f:
-                    out.write(f.read())
-
-                i += 1
-
-        print("Retrieved as output.jpg")
+        print(f"Retrieved {key} ({version}) as output.jpg")
         
     def getLatestVersion(self, object_path):
 
@@ -85,32 +122,27 @@ class ObjectStore:
         latest = max(int(v[1:]) for v in versions)
         return f"v{latest}"
 
-    def listObjects(self, bucket_name, prefix):
+    def listObjects(self, bucket_name, prefix=None):
 
-        bucket_path = os.path.join(self.base_path, bucket_name)
+        # Check bucket existence
+        store_meta = self.metadata_manager.load_store_metadata()
 
-        if not os.path.exists(bucket_path):
+        if bucket_name not in store_meta.get("buckets", []):
             print("Bucket does not exist.")
-            return
+            return {}
 
+        # Load bucket metadata
+        bucket_meta = self.metadata_manager.load_bucket_metadata(bucket_name)
+        objects = bucket_meta.get("objects", {})
 
-        object_keys = []
-
-        for root, dirs, files in os.walk(bucket_path):
-
-
-            if any(d.startswith("v") for d in root.split(os.sep)):
-                continue
-
-
-            if not dirs:
-                key = os.path.relpath(root, bucket_path)
-                object_keys.append(key)
-
-
+        # Apply prefix filter
         if prefix:
-            object_keys = [k for k in object_keys if k.startswith(prefix)]
+            objects = {
+                key: version
+                for key, version in objects.items()
+                if key.startswith(prefix)
+            }
 
         print("Objects:")
-        for key in object_keys:
-            print(key)
+        for key, version in objects.items():
+            print(f"{key} -> {version}")

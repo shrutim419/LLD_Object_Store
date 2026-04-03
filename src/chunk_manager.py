@@ -21,7 +21,6 @@ class ChunkManager:
         return chunks
     
     def write_chunks(self, version_path: str, chunks: list[bytes]):
-        os.makedirs(version_path, exist_ok = True)
         for i, chunk_data in enumerate(chunks):
              filename = f'chunk{i+1}'
              filepath = os.path.join(version_path, filename)

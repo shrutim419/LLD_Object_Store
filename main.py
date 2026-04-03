@@ -17,9 +17,10 @@ def main():
     chunks = [b"hello ", b"world ", b"test"]
 
     store.putObject("photos", "2025/img1.jpg", chunks)
-    store.putObject("photos", "2025/img1.jpg", chunks)
+    store.putObject("photos", "2025/img2.jpg", chunks)
 
     store.getObject("photos", "2025/img1.jpg")
+    store.listObjects("photos")
 
 if __name__ == "__main__":
     main()

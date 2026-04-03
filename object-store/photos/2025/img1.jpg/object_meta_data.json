@@ -1,0 +1,21 @@
+{
+    "key": "2025/img1.jpg",
+    "versions": {
+        "v1": {
+            "chunkCount": 3,
+            "hash": "34fd6281487a6e36f5d4c67e6516cd0f78fdb36e647c41a86d80230161aa8951"
+        },
+        "v2": {
+            "chunkCount": 3,
+            "hash": "34fd6281487a6e36f5d4c67e6516cd0f78fdb36e647c41a86d80230161aa8951"
+        },
+        "v3": {
+            "chunkCount": 3,
+            "hash": "34fd6281487a6e36f5d4c67e6516cd0f78fdb36e647c41a86d80230161aa8951"
+        },
+        "v4": {
+            "chunkCount": 3,
+            "hash": "34fd6281487a6e36f5d4c67e6516cd0f78fdb36e647c41a86d80230161aa8951"
+        }
+    }
+}
