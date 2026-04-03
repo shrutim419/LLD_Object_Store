@@ -4,7 +4,7 @@ class ObjectManager:
     def __init__(self, storage_path):
         self.storage_path = storage_path
 
-    def put_object(self, bucket_name, key, chunks):
+    def putObject(self, bucket_name, key, chunks):
 
         object_path = os.path.join(self.storage_path, bucket_name, key)
 

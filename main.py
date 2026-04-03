@@ -1,15 +1,25 @@
 from src.object_store import ObjectStore
-from src.bucket_manager import BucketManager
-from src.object_manager import ObjectManager
+import os
 
-store = ObjectStore()
-bucket_mgr = BucketManager(store.storage_path)
-object_mgr = ObjectManager(store.)
 
-bucket_mgr.create_bucket("photos")
+def create_sample_file():
 
-chunks = [b"chunk1", b"chunk2", b"chunk3"]
+    with open("sample.txt", "w") as f:
+        f.write("This is a test file for object store.\n" * 50)
 
-object_mgr.put_object("photos", "2025/kokan/img1.jpg", chunks)
-object_mgr.put_object("photos", "2025/kokan/img2.jpg", chunks)
 
+def main():
+
+    store = ObjectStore()
+
+    store.createBucket("photos")
+
+    chunks = [b"hello ", b"world ", b"test"]
+
+    store.putObject("photos", "2025/img1.jpg", chunks)
+    store.putObject("photos", "2025/img1.jpg", chunks)
+
+    store.getObject("photos", "2025/img1.jpg")
+
+if __name__ == "__main__":
+    main()
