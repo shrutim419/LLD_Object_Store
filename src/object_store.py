@@ -10,7 +10,7 @@ class ObjectStore:
         self.metadata_manager=MetaDataManager()
         self.chunk_manager=ChunkManager(chunk_size)
 
-    def createBucket(self, bucket_name):
+    def createBucket(self, bucket_name: str) -> bool:
         bucket_path = os.path.join(self.base_path, bucket_name)
         
         if os.path.exists(bucket_path):
@@ -23,24 +23,40 @@ class ObjectStore:
         print(f"Bucket {bucket_name} created successfully.")
         return True
 
-    def bucketExists(self, bucket_name):
+    def bucketExists(self, bucket_name: str) -> bool:
         bucket_path = os.path.join(self.base_path, bucket_name)
         return os.path.exists(bucket_path)
+    
+    def objectExists(self, bucket_name: str, key: str) -> bool:
+        object_path = os.path.join(self.base_path, bucket_name, key)
+        return os.path.exists(object_path)
 
 
-    def putObject(self, bucket_name, key, chunks):
+    def putObject(self, bucket_name: str, key: str, data_path: str) -> bool:
+
+        if not self.bucketExists(bucket_name): 
+            print(f"Bucket {bucket_name} does not exist") 
+            return False 
+        if not os.path.exists(data_path): 
+            print(f"{data_path} does not exist.")
+            return False
 
         object_path = os.path.join(self.base_path, bucket_name, key)
         os.makedirs(object_path, exist_ok=True)
 
-        version = self.getNextVersion(object_path)
+        with open(data_path, 'rb') as f: 
+            object_data = f.read()
 
+        file_hash = self.chunk_manager.compute_hash(object_data)
+
+        version = self.getNextVersion(object_path)
         version_path = os.path.join(object_path, version)
         os.makedirs(version_path, exist_ok=True)
 
+        chunks = self.chunk_manager.split_into_chunks(object_data) 
         self.chunk_manager.write_chunks(version_path,chunks)
+
         obj_meta = self.metadata_manager.load_object_metadata(bucket_name, key)
-        file_hash = self.chunk_manager.compute_hash(b''.join(chunks))
 
         obj_meta["versions"][version] = {
             "chunkCount": len(chunks),
@@ -53,13 +69,10 @@ class ObjectStore:
         bucket_meta["objects"][key] = version
         self.metadata_manager.save_bucket_metadata(bucket_name, bucket_meta)
 
-        # for i, chunk in enumerate(chunks):
-        #     with open(os.path.join(version_path, f"chunk{i+1}"), "wb") as f:
-        #         f.write(chunk)
+        print(f"Stored {key} in {bucket_name}/{version}")
+        return True
 
-        print(f"Stored in {bucket_name}/{version}")
-
-    def getNextVersion(self, object_path):
+    def getNextVersion(self, object_path) -> str:
         if not os.path.exists(object_path):
             return "v1"
 
@@ -71,7 +84,15 @@ class ObjectStore:
         return f"v{latest_version + 1}"
 
 
-    def getObject(self, bucket_name, key, version=None):
+    def getObject(self, bucket_name, key, version=None)-> bool:
+
+        if not self.bucketExists(bucket_name):
+            print(f"Bucket {bucket_name} does not exist") 
+            return False
+        
+        if not self.objectExists(bucket_name, key):
+            print(f"{key} does not exist") 
+            return False
 
         object_path = os.path.join(self.base_path, bucket_name, key)
 
@@ -80,7 +101,7 @@ class ObjectStore:
 
         if not obj_meta["versions"]:
             print("No versions found.")
-            return
+            return False
 
         # Get latest version if not provided
         if version is None:
@@ -89,28 +110,33 @@ class ObjectStore:
         # Validate version
         if version not in obj_meta["versions"]:
             print(f"Version {version} not found.")
-            return
+            return False
 
         version_info = obj_meta["versions"][version]
         chunk_count = version_info["chunkCount"]
         expected_hash = version_info["hash"]
 
         version_path = os.path.join(object_path, version)
+        filename = os.path.basename(key)
 
         reconstructed_data = self.chunk_manager.read_chunks(version_path, chunk_count)
 
         # Verify integrity
-        actual_hash = self.chunk_manager.compute_hash(bytes(reconstructed_data))
+        actual_hash = self.chunk_manager.compute_hash(reconstructed_data)
 
         if actual_hash != expected_hash:
             print("WARNING: Data corruption detected!")
-            return
+            return False
+        else:
+            print("No corruption detected.")
 
         # Save output
-        with open("output.jpg", "wb") as out:
+        with open(f"reconstructed_{filename}", "wb") as out:
             out.write(reconstructed_data)
 
-        print(f"Retrieved {key} ({version}) as output.jpg")
+        print(f"Retrieved {key}({version}) as reconstructed_{filename}")
+
+        return True
         
     def getLatestVersion(self, object_path):
 
@@ -122,14 +148,14 @@ class ObjectStore:
         latest = max(int(v[1:]) for v in versions)
         return f"v{latest}"
 
-    def listObjects(self, bucket_name, prefix=None):
+    def listObjects(self, bucket_name, prefix=None) -> None:
 
         # Check bucket existence
         store_meta = self.metadata_manager.load_store_metadata()
 
         if bucket_name not in store_meta.get("buckets", []):
             print("Bucket does not exist.")
-            return {}
+            return
 
         # Load bucket metadata
         bucket_meta = self.metadata_manager.load_bucket_metadata(bucket_name)
@@ -143,6 +169,6 @@ class ObjectStore:
                 if key.startswith(prefix)
             }
 
-        print("Objects:")
+        print(f"{bucket_name}")
         for key, version in objects.items():
-            print(f"{key} -> {version}")
+            print(f"| {key} -> {version}")

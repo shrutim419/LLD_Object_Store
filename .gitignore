@@ -2,4 +2,9 @@ data/
 images/
 __pycache__/
 
+# Test files
+*.gif
+*.jpg
+*.txt
+*.mp4
 object-store/

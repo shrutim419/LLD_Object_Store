@@ -30,7 +30,7 @@ class MetaDataManager():
         data = self._read_json(path)
         if bucket_name not in data["buckets"]:
             data['buckets'].append(bucket_name)
-            data= self._write_json(path, data)
+            self._write_json(path, data)
     
     def load_bucket_metadata(self, bucket):
         path = os.path.join(self.base_path, bucket, "bucket_meta_data.json")

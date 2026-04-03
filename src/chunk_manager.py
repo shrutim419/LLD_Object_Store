@@ -42,9 +42,7 @@ class ChunkManager:
         return bytes(merged_data)
 
     def compute_hash(self, data: bytes):
-        print(f"Computing SHA-256 hash for data of size {len(data)} bytes")
         filehash = hashlib.sha256(data).hexdigest()
-        print(f'Calculated hash: {filehash}')
         return filehash
     
 if __name__ == "__main__":

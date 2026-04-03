@@ -13,13 +13,17 @@ def main():
     store = ObjectStore()
 
     store.createBucket("photos")
+    store.createBucket("Documents")
 
-    chunks = [b"hello ", b"world ", b"test"]
+    store.putObject("photos", "2025/cat.gif", 'giphy.gif')
+    store.putObject("photos", "2025/pedro.gif", 'pedro.gif')
+    store.putObject("photos", "2025/cat.mp4", 'cat.mp4')
+    store.putObject("Documents", "sample.txt", "sample.txt")
 
-    store.putObject("photos", "2025/img1.jpg", chunks)
-    store.putObject("photos", "2025/img2.jpg", chunks)
-
-    store.getObject("photos", "2025/img1.jpg")
+    store.getObject("photoss", "2025/pedro.gif")
+    store.getObject("photos", "2025/pedro.gif")
+    store.getObject("photos", "2025/cat.mp4")
+    store.getObject("Documents", "sample.txt")
     store.listObjects("photos")
 
 if __name__ == "__main__":
