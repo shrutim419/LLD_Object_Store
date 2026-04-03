@@ -3,7 +3,7 @@ import json
 import hashlib
 
 class MetaDataManager():
-    def __init__(self, base_path="object-store"):
+    def __init__(self, base_path: str):
         self.base_path=base_path
         self.store_meta_file = os.path.join(base_path, "store_meta_data.json")
 

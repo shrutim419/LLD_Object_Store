@@ -1,14 +1,15 @@
 import os
+from pathlib import Path
 from src.meta_data_manager import MetaDataManager
 from src.chunk_manager import ChunkManager
 class ObjectStore:
-    def __init__(self, base_path = "object-store", chunk_size = 1024):
-        self.base_path = base_path
-        self.chunk_size = chunk_size
-        
+    def __init__(self, base_path: str | None = None, chunk_size : int | None = None):
+        self.base_path = base_path or str(Path(__file__).resolve().parent.parent / "object-store")
+        self.chunk_size = chunk_size or 1024
+
         os.makedirs(self.base_path, exist_ok=True)
-        self.metadata_manager=MetaDataManager()
-        self.chunk_manager=ChunkManager(chunk_size)
+        self.metadata_manager=MetaDataManager(self.base_path)
+        self.chunk_manager=ChunkManager(self.chunk_size)
 
     def createBucket(self, bucket_name: str) -> bool:
         bucket_path = os.path.join(self.base_path, bucket_name)
