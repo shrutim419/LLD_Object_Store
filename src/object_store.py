@@ -41,6 +41,8 @@ class ObjectStore:
         if not os.path.exists(data_path): 
             print(f"{data_path} does not exist.")
             return False
+        
+        print(f"Storing {key} in {bucket_name}.")
 
         object_path = os.path.join(self.base_path, bucket_name, key)
         os.makedirs(object_path, exist_ok=True)
@@ -118,7 +120,8 @@ class ObjectStore:
         expected_hash = version_info["hash"]
 
         version_path = os.path.join(object_path, version)
-        filename = os.path.basename(key)
+        filename = os.path.basename(key).split('.')[0]
+        extension = os.path.basename(key).split('.')[1]
 
         reconstructed_data = self.chunk_manager.read_chunks(version_path, chunk_count)
 
@@ -132,7 +135,7 @@ class ObjectStore:
             print("No corruption detected.")
 
         # Save output
-        with open(f"reconstructed_{filename}", "wb") as out:
+        with open(f"reconstructed_{filename}_{version}.{extension}", "wb") as out:
             out.write(reconstructed_data)
 
         print(f"Retrieved {key}({version}) as reconstructed_{filename}")

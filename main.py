@@ -1,30 +1,34 @@
 from src.object_store import ObjectStore
-import os
-
-
-def create_sample_file():
-
-    with open("sample.txt", "w") as f:
-        f.write("This is a test file for object store.\n" * 50)
 
 
 def main():
-
     store = ObjectStore()
 
+    # Create buckets
     store.createBucket("photos")
-    store.createBucket("Documents")
+    store.createBucket("documents")
 
-    store.putObject("photos", "2025/cat.gif", 'giphy.gif')
-    store.putObject("photos", "2025/pedro.gif", 'pedro.gif')
-    store.putObject("photos", "2025/cat.mp4", 'cat.mp4')
-    store.putObject("Documents", "sample.txt", "sample.txt")
+    # Store objects with prefixes
+    store.putObject("photos", "trip/cat.mp4", "cat.mp4")
+    store.putObject("photos", "trip/Taj Mahal.jpg", "Taj Mahal.jpg")
 
-    store.getObject("photoss", "2025/pedro.gif")
-    store.getObject("photos", "2025/pedro.gif")
-    store.getObject("photos", "2025/cat.mp4")
-    store.getObject("Documents", "sample.txt")
+    store.putObject("photos", "gifs/giphy.gif", "giphy.gif")
+    store.putObject("photos", "gifs/pedro.gif", "pedro.gif")
+
+    store.putObject("documents", "sample.txt", "sample.txt")
+
+    # Create a new version
+    store.putObject("photos", "gifs/pedro.gif", "pedro.gif")
+
+    # Retrieve
+    store.getObject("photos", "gifs/pedro.gif")
+    store.getObject("photos", "gifs/pedro.gif", "v1")
+
+    # List
     store.listObjects("photos")
+    store.listObjects("photos", prefix="trip/")
+    store.listObjects("photos", prefix="gifs/")
+
 
 if __name__ == "__main__":
     main()
