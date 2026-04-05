@@ -97,6 +97,8 @@ class ObjectStore:
             print(f"{key} does not exist") 
             return False
 
+        print(f"Retrieving {key} from {bucket_name}")
+
         object_path = os.path.join(self.base_path, bucket_name, key)
 
         # Load metadata
@@ -120,8 +122,8 @@ class ObjectStore:
         expected_hash = version_info["hash"]
 
         version_path = os.path.join(object_path, version)
-        filename = os.path.basename(key).split('.')[0]
-        extension = os.path.basename(key).split('.')[1]
+        base_name = os.path.basename(key)
+        filename, extension = os.path.splitext(base_name)
 
         reconstructed_data = self.chunk_manager.read_chunks(version_path, chunk_count)
 
@@ -135,10 +137,10 @@ class ObjectStore:
             print("No corruption detected.")
 
         # Save output
-        with open(f"reconstructed_{filename}_{version}.{extension}", "wb") as out:
+        with open(f"reconstructed_{filename}_{version}{extension}", "wb") as out:
             out.write(reconstructed_data)
 
-        print(f"Retrieved {key}({version}) as reconstructed_{filename}")
+        print(f"Retrieved {key}({version}) as reconstructed_{filename}_{version}{extension}")
 
         return True
         
