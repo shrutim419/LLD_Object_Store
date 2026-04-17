@@ -4,7 +4,26 @@ from pathlib import Path
 from src.meta_data_manager import MetaDataManager
 from src.chunk_manager import ChunkManager
 class ObjectStore:
+    """
+    This is a simplified object store inspired by services like Amazon S3.
+    It has:
+    Object storing inside buckets.
+    Supports Object versioning.
+    Retrieval of the latest object or specified version of object.
+    Supports prefix listing of keys.
+    Objects are stored on a local files system where:
+    The object store has a base directory.
+    Each bucket is represented as a directory inside the base directory.
+    Each object has a key that is like a path to the object in the file system
+    If the same object is put into a bucket a new version of the object is created.
+    Object data is stored in fixed size chunks.
+    Hash of the data is stored for validation.
+    Meta data is stored at Object Store level, Bucket level and Object level.
+
+    """
+    
     def __init__(self, base_path: str | None = None, chunk_size : int | None = None):
+        
         self.base_path = base_path or str(Path(__file__).resolve().parent.parent / "object-store")
         self.chunk_size = chunk_size or 1024
 
@@ -13,6 +32,14 @@ class ObjectStore:
         self.chunk_manager=ChunkManager(self.chunk_size)
 
     def createBucket(self, bucket_name: str) -> bool:
+        """Create a new bucket for storing objects.
+        Parameters 
+        bucket_name: Name of the bucket to create. Must be unique.
+        
+        Returns
+            True if bucket created successfully, False if it already exists.
+
+        """
         bucket_path = os.path.join(self.base_path, bucket_name)
         
         if os.path.exists(bucket_path):
@@ -26,15 +53,45 @@ class ObjectStore:
         return True
 
     def bucketExists(self, bucket_name: str) -> bool:
+        """Check if a bucket exists in the object store.
+        
+        Parameters:
+            bucket_name: Name of the bucket to check.
+        
+        Returns:
+            True if bucket exists. False otherwise.
+        """
         bucket_path = os.path.join(self.base_path, bucket_name)
         return os.path.exists(bucket_path)
     
     def objectExists(self, bucket_name: str, key: str) -> bool:
+        """Check if an object exists in a bucket.
+        
+        Returns:
+            True if object exists, False otherwise.
+        """
         object_path = os.path.join(self.base_path, bucket_name, key)
         return os.path.exists(object_path)
 
 
     def putObject(self, bucket_name: str, key: str, data_path: str) -> bool:
+        """Store a file in the object store as a new version.
+        
+        Args:
+            bucket_name: Destination bucket name.
+            key: Object identifier/path within the bucket.
+            data_path: File system path to the file to store.
+        
+        Returns:
+            True if object stored successfully. False on validation or storage errors.
+            
+            - Reads file from disk and chunks it based on chunk_size
+            - Writes chunks to versioned directory structure
+            - Computes and stores SHA-256 hash for integrity verification
+            - Updates bucket and object metadata
+            - Creates new version entry
+ 
+        """
 
         if not self.bucketExists(bucket_name):
             print(f"Bucket {bucket_name} does not exist")
@@ -90,6 +147,17 @@ class ObjectStore:
             return False
 
     def getNextVersion(self, object_path) -> str:
+        """Determine the next available version number for an object.
+        
+        Args:
+            object_path: File system path to the object directory.
+        
+        Returns:
+            Next version string ( 'v1','v2','v3'). Returns 'v1' for new objects.
+            
+
+        Scans directory for existing version folders and returns the next sequential version number.
+        """
         if not os.path.exists(object_path):
             return "v1"
 
@@ -101,7 +169,28 @@ class ObjectStore:
         return f"v{latest_version + 1}"
 
 
-    def getObject(self, bucket_name, key, version=None)-> bool:
+    def getObject(self, bucket_name, key, version=None) -> bool:
+        """Retrieve an object from storage and reconstruct it from chunks.
+        
+        Parameters:
+            bucket_name: Source bucket name.
+            key: Object identifier/path within the bucket.
+            version: Specific version to retrieve (e.g. 'v1', 'v2'). Defaults to latest version.
+        
+        Returns:
+            True if object retrieved and reconstructed successfully, False on any error.
+
+        - Reads all chunks from disk for the specified version
+        - Reconstructs original file from chunks in correct order
+        - Saves reconstructed file as 'reconstructed_<filename>_<version>.<ext>'
+        - Verifies data integrity by comparing SHA-256 hashes
+            
+        Validation:
+            - Checks bucket exists
+            - Checks object exists in bucket
+            - Validates requested version exists
+            - Detects data corruption via hash mismatch
+        """
 
         if not self.bucketExists(bucket_name):
             print(f"Bucket {bucket_name} does not exist") 
@@ -158,7 +247,15 @@ class ObjectStore:
 
         return True
         
-    def getLatestVersion(self, object_path):
+    def getLatestVersion(self, object_path) -> str | None:
+        """Retrieve the latest version number of an object.
+        
+        parameter:
+            object_path: File system path to the object directory.
+        
+        Returns:
+            Latest version string (e.g., 'v5'), or None if no versions exist.            
+        """
 
         versions = [d for d in os.listdir(object_path) if d.startswith("v")]
 
@@ -169,6 +266,14 @@ class ObjectStore:
         return f"v{latest}"
 
     def listObjects(self, bucket_name, prefix=None) -> None:
+        """List all objects in a bucket with optional prefix filtering.
+        
+        Parameters:
+            bucket_name: Name of the bucket to list objects from.
+            prefix: Optional prefix filter. Only objects whose keys start with this string
+                   will be listed. If None, all objects in bucket are listed.
+
+        """
 
         # Check bucket existence
         store_meta = self.metadata_manager.load_store_metadata()
