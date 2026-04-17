@@ -62,7 +62,7 @@ class ObjectStore:
             chunks = self.chunk_manager.split_into_chunks(object_data)
             self.chunk_manager.write_chunks(version_path, chunks)
 
-            # Update bucket metadata first (safer order - simpler operation)
+            # Update bucket metadata first
             bucket_meta = self.metadata_manager.load_bucket_metadata(bucket_name)
             bucket_meta["objects"][key] = version
             self.metadata_manager.save_bucket_metadata(bucket_name, bucket_meta)
@@ -80,7 +80,7 @@ class ObjectStore:
 
         except Exception as e:
             print(f"Error storing object: {e}")
-            # Cleanup: remove the version directory if storage failed
+            
             if os.path.exists(version_path):
                 try:
                     shutil.rmtree(version_path)
