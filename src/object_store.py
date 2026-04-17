@@ -61,8 +61,8 @@ class ObjectStore:
         Returns:
             True if bucket exists. False otherwise.
         """
-        bucket_path = os.path.join(self.base_path, bucket_name)
-        return os.path.exists(bucket_path)
+        data = self.metadata_manager.load_store_metadata()
+        return bucket_name in data["buckets"]
     
     def objectExists(self, bucket_name: str, key: str) -> bool:
         """Check if an object exists in a bucket.
@@ -70,9 +70,8 @@ class ObjectStore:
         Returns:
             True if object exists, False otherwise.
         """
-        object_path = os.path.join(self.base_path, bucket_name, key)
-        return os.path.exists(object_path)
-
+        data = self.metadata_manager.load_bucket_metadata(bucket_name)
+        return key in data.get("objects", {})
 
     def putObject(self, bucket_name: str, key: str, data_path: str) -> bool:
         """Store a file in the object store as a new version.
@@ -110,7 +109,7 @@ class ObjectStore:
 
         file_hash = self.chunk_manager.compute_hash(object_data)
 
-        version = self.getNextVersion(object_path)
+        version = self.getNextVersion(bucket_name, key)
         version_path = os.path.join(object_path, version)
         os.makedirs(version_path, exist_ok=True)
 
@@ -146,27 +145,25 @@ class ObjectStore:
                     print(f"Failed to cleanup: {cleanup_error}")
             return False
 
-    def getNextVersion(self, object_path) -> str:
+    def getNextVersion(self, bucket, key) -> str:
         """Determine the next available version number for an object.
         
         Args:
-            object_path: File system path to the object directory.
+            bucket: Bucket name which contains the object.
+            key: Object identifier/path within the bucket.
         
         Returns:
             Next version string ( 'v1','v2','v3'). Returns 'v1' for new objects.
-            
 
-        Scans directory for existing version folders and returns the next sequential version number.
         """
-        if not os.path.exists(object_path):
-            return "v1"
+        data = self.metadata_manager.load_object_metadata(bucket, key)
+        versions = data.get("versions", {})
 
-        versions = [d for d in os.listdir(object_path) if d.startswith('v')]
         if not versions:
             return "v1"
 
-        latest_version = max(int(v[1:]) for v in versions)
-        return f"v{latest_version + 1}"
+        latest = max(int(v[1:]) for v in versions.keys())
+        return f"v{latest + 1}"
 
 
     def getObject(self, bucket_name, key, version=None) -> bool:
@@ -246,23 +243,25 @@ class ObjectStore:
         print(f"Retrieved {key}({version}) as reconstructed_{filename}_{version}{extension}")
 
         return True
-        
-    def getLatestVersion(self, object_path) -> str | None:
+# 
+    def getLatestVersion(self, bucket, key) -> str | None:
         """Retrieve the latest version number of an object.
         
-        parameter:
-            object_path: File system path to the object directory.
+        Args:
+            bucket: Bucket name which contains the object.
+            key: Object identifier/path within the bucket.
         
         Returns:
             Latest version string (e.g., 'v5'), or None if no versions exist.            
         """
 
-        versions = [d for d in os.listdir(object_path) if d.startswith("v")]
+        data = self.metadata_manager.load_object_metadata(bucket, key)
+        versions = data.get("versions", {})
 
         if not versions:
             return None
 
-        latest = max(int(v[1:]) for v in versions)
+        latest = max(int(v[1:]) for v in versions.keys())
         return f"v{latest}"
 
     def listObjects(self, bucket_name, prefix=None) -> None:
