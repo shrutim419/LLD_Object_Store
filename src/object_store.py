@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 from src.meta_data_manager import MetaDataManager
 from src.chunk_manager import ChunkManager
@@ -35,19 +36,19 @@ class ObjectStore:
 
     def putObject(self, bucket_name: str, key: str, data_path: str) -> bool:
 
-        if not self.bucketExists(bucket_name): 
-            print(f"Bucket {bucket_name} does not exist") 
-            return False 
-        if not os.path.exists(data_path): 
+        if not self.bucketExists(bucket_name):
+            print(f"Bucket {bucket_name} does not exist")
+            return False
+        if not os.path.exists(data_path):
             print(f"{data_path} does not exist.")
             return False
-        
+
         print(f"Storing {key} in {bucket_name}.")
 
         object_path = os.path.join(self.base_path, bucket_name, key)
         os.makedirs(object_path, exist_ok=True)
 
-        with open(data_path, 'rb') as f: 
+        with open(data_path, 'rb') as f:
             object_data = f.read()
 
         file_hash = self.chunk_manager.compute_hash(object_data)
@@ -56,24 +57,37 @@ class ObjectStore:
         version_path = os.path.join(object_path, version)
         os.makedirs(version_path, exist_ok=True)
 
-        chunks = self.chunk_manager.split_into_chunks(object_data) 
-        self.chunk_manager.write_chunks(version_path,chunks)
+        try:
+            # Write chunks to disk
+            chunks = self.chunk_manager.split_into_chunks(object_data)
+            self.chunk_manager.write_chunks(version_path, chunks)
 
-        obj_meta = self.metadata_manager.load_object_metadata(bucket_name, key)
+            # Update bucket metadata first (safer order - simpler operation)
+            bucket_meta = self.metadata_manager.load_bucket_metadata(bucket_name)
+            bucket_meta["objects"][key] = version
+            self.metadata_manager.save_bucket_metadata(bucket_name, bucket_meta)
 
-        obj_meta["versions"][version] = {
-            "chunkCount": len(chunks),
-            "hash": file_hash
-        }
+            # Update object metadata second
+            obj_meta = self.metadata_manager.load_object_metadata(bucket_name, key)
+            obj_meta["versions"][version] = {
+                "chunkCount": len(chunks),
+                "hash": file_hash
+            }
+            self.metadata_manager.save_object_metadata(bucket_name, key, obj_meta)
 
-        self.metadata_manager.save_object_metadata(bucket_name, key, obj_meta)
+            print(f"Stored {key} in {bucket_name}/{version}")
+            return True
 
-        bucket_meta = self.metadata_manager.load_bucket_metadata(bucket_name)
-        bucket_meta["objects"][key] = version
-        self.metadata_manager.save_bucket_metadata(bucket_name, bucket_meta)
-
-        print(f"Stored {key} in {bucket_name}/{version}")
-        return True
+        except Exception as e:
+            print(f"Error storing object: {e}")
+            # Cleanup: remove the version directory if storage failed
+            if os.path.exists(version_path):
+                try:
+                    shutil.rmtree(version_path)
+                    print(f"Cleaned up orphaned version directory: {version_path}")
+                except Exception as cleanup_error:
+                    print(f"Failed to cleanup: {cleanup_error}")
+            return False
 
     def getNextVersion(self, object_path) -> str:
         if not os.path.exists(object_path):
