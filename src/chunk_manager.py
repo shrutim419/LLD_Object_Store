@@ -30,15 +30,14 @@ class ChunkManager:
     def read_chunks(self, version_path: str, chunk_count: int):
         merged_data = bytearray()
         print(f'Reading {chunk_count} chunks from {version_path}')
-        for i in range(1, chunk_count + 1):
-            filename = f'chunk{i}'
+        chunk_files = sorted(
+            [f for f in os.listdir(version_path) if f.startswith('chunk')],
+            key=lambda x: int(x.replace('chunk', ''))
+        )
+        for filename in chunk_files:
             filepath = os.path.join(version_path, filename)
-
-            if not os.path.exists(filepath):
-                 raise FileNotFoundError(f'Missing Chunk: {filepath}')
-            
             with open(filepath, 'rb') as f:
-                 merged_data.extend(f.read())
+                merged_data.extend(f.read())
         return bytes(merged_data)
 
     def compute_hash(self, data: bytes):
