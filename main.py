@@ -22,8 +22,10 @@ def main():
 
     # Demonstrate getLatestVersion() utility
     print("\n--- Demonstrating getLatestVersion() ---")
-    object_path = "object-store/photos/gifs/pedro.gif"
-    latest = store.getLatestVersion(object_path)
+    # object_path = "object-store/photos/gifs/pedro.gif"
+    bucket="photos"
+    key="gifs/pedro.gif"
+    latest = store.getLatestVersion(bucket, key)
     print(f"Latest version available: {latest}")
 
     # Retrieve
